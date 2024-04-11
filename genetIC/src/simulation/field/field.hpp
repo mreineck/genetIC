@@ -397,18 +397,56 @@ namespace fields {
       assert(covariance.isFourier());
       assert(&covariance.getGrid() == &this->getGrid());
       auto grid = this->getGrid();
-      forEachFourierCellInt([&grid, this, &covariance, power]
-                                    (T existingValue, int kx, int ky, int kz) {
 
-        auto spec = covariance.getFourierCoefficient(kx,ky,kz).real();
+      if (power==0.5)
+        T_forEachFourierCellInt([&grid, this, &covariance, power]
+                                      (T existingValue, int kx, int ky, int kz) {
+  
+          auto spec = covariance.getFourierCoefficient(kx,ky,kz).real();
+  
+          spec = sqrt(spec);
+  
+          T new_val = existingValue*spec;
+  
+          return new_val;
+        });
+      else if (power==-0.5)
+        T_forEachFourierCellInt([&grid, this, &covariance, power]
+                                      (T existingValue, int kx, int ky, int kz) {
+  
+          auto spec = covariance.getFourierCoefficient(kx,ky,kz).real();
+  
+          if (spec!=0) spec = 1./sqrt(spec);
+  
+          T new_val = existingValue*spec;
+  
+          return new_val;
+        });
+      else if (power==-1)
+        T_forEachFourierCellInt([&grid, this, &covariance, power]
+                                      (T existingValue, int kx, int ky, int kz) {
+  
+          auto spec = covariance.getFourierCoefficient(kx,ky,kz).real();
+  
+          if (spec!=0) spec = 1./spec;
 
-        if(power!=1.0 && spec!=0.0)
-          spec = pow(spec, power);
-
-        T new_val = existingValue*spec;
-
-        return new_val;
-      });
+          T new_val = existingValue*spec;
+  
+          return new_val;
+        });
+      else
+        T_forEachFourierCellInt([&grid, this, &covariance, power]
+                                      (T existingValue, int kx, int ky, int kz) {
+  
+          auto spec = covariance.getFourierCoefficient(kx,ky,kz).real();
+  
+          if(power!=1.0 && spec!=0.0)
+            spec = pow(spec, power);
+  
+          T new_val = existingValue*spec;
+  
+          return new_val;
+        });
     }
 
 
@@ -704,6 +742,10 @@ namespace fields {
     template<typename... Args>
     void forEachFourierCellInt(Args &&... args) const {
       fourierManager->forEachFourierCellInt(args...);
+    }
+    template<typename... Args>
+    void T_forEachFourierCellInt(Args &&... args) const {
+      fourierManager->T_forEachFourierCellInt(args...);
     }
 
     //! Iterate (potentially in parallel) over each Fourier cell, accumulate a complex number over each Fourier cell

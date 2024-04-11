@@ -108,8 +108,8 @@ namespace tools {
         }
 
         //! Applies the callback function iteratively over a Fourier space field, summing up the result of the function over all cells
-        ComplexType
-        iterateFourierCellsWithAccumulation(const std::function<ComplexType(int, int, int)> &callback) const {
+        template<typename Func> ComplexType
+        iterateFourierCellsWithAccumulation(Func callback) const {
           field.toFourier();
 
           CoordinateType global_result_real(0), global_result_imag(0);
@@ -152,7 +152,7 @@ namespace tools {
         }
 
         //! Apply the callback function to all cells (no return type)
-        void iterateFourierCells(const std::function<void(int, int, int)> &callback) const {
+        template<typename Func> void iterateFourierCells(Func callback) const {
           // TODO: this is good because we only need to implement the loop over fourier cells once,
           // but bad because functions that are not actually accumulating will waste time accumulating zeros
           auto callback_wrapper = [&callback](int x, int y, int z) -> ComplexType {
@@ -183,8 +183,8 @@ namespace tools {
            * passed function return value.
            *
            */
-        void forEachFourierCell(
-          const std::function<ComplexType(ComplexType, CoordinateType, CoordinateType, CoordinateType)> &fn) {
+        template<typename Func> void forEachFourierCell(
+          Func fn) {
 
           CoordinateType kMin = grid.getFourierKmin();
           iterateFourierCells([&fn, this, kMin](int kx, int ky, int kz) {
@@ -199,8 +199,8 @@ namespace tools {
             \param fn - The passed function takes arguments (value, kx, ky, kz) where value is the Fourier coeff value
            * at k-mode kx, ky, kz.
            */
-        void forEachFourierCell(
-          const std::function<void(ComplexType, CoordinateType, CoordinateType, CoordinateType)> &fn) const {
+        template<typename Func> void forEachFourierCell(
+          Func fn) const {
           CoordinateType kMin = grid.getFourierKmin();
           iterateFourierCells([&fn, this, kMin](int kx, int ky, int kz) {
             ComplexType value = getFourierCoefficient(kx, ky, kz);
@@ -213,6 +213,14 @@ namespace tools {
            * at k-mode corresponding to the integer wavenumbers kx*grid.getFourierKmin() etc
            */
         void forEachFourierCellInt(const std::function<void(ComplexType, int, int, int)> &fn) const {
+          CoordinateType kMin = grid.getFourierKmin();
+          iterateFourierCells([&fn, this, kMin](int kx, int ky, int kz) {
+            ComplexType value = getFourierCoefficient(kx, ky, kz);
+            fn(value, kx, ky, kz);
+          });
+        }
+
+        template<typename Func> void T_forEachFourierCellInt(Func fn) const {
           CoordinateType kMin = grid.getFourierKmin();
           iterateFourierCells([&fn, this, kMin](int kx, int ky, int kz) {
             ComplexType value = getFourierCoefficient(kx, ky, kz);
@@ -233,12 +241,20 @@ namespace tools {
             setFourierCoefficient(kx, ky, kz, retval);
           });
         }
+        template<typename Func> void T_forEachFourierCellInt(Func fn) {
+          CoordinateType kMin = grid.getFourierKmin();
+          iterateFourierCells([&fn, this, kMin](int kx, int ky, int kz) {
+            ComplexType value = getFourierCoefficient(kx, ky, kz);
+            auto retval = fn(value, kx, ky, kz);
+            setFourierCoefficient(kx, ky, kz, retval);
+          });
+        }
 
         /*! \brief Iterate (potentially in parallel) and accumulate a complex number over each Fourier cell.
             \param callback - The passed function takes arguments (value, kx, ky, kz). The return value is accumulated.
            */
-        ComplexType
-        accumulateForEachFourierCell(const std::function<ComplexType(ComplexType, int, int, int)> &callback) const {
+        template<typename Func> ComplexType
+        accumulateForEachFourierCell(Func callback) const {
           field.toFourier();
           auto result = iterateFourierCellsWithAccumulation([&callback, this](int kx, int ky, int kz) -> ComplexType {
             ComplexType value = getFourierCoefficient(kx, ky, kz);
@@ -251,10 +267,8 @@ namespace tools {
 
 
         //! Takes a function outputting a tuple of three complex numbers, and iterates it over the Fourier grid, to create three Fourier fields
-        auto generateNewFourierFields(
-          const std::function<std::tuple<ComplexType, ComplexType, ComplexType>(ComplexType, CoordinateType,
-                                                                                CoordinateType,
-                                                                                CoordinateType)> &fn) {
+        template<typename Func> auto generateNewFourierFields(
+          Func fn) {
           using Field = fields::Field<DataType, CoordinateType>;
           // TODO: ought to be possible to generalise away from ugly 3D-specific case using template programming
           auto ret1 = std::make_shared<Field>(grid);

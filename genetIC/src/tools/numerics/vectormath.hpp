@@ -20,10 +20,7 @@ namespace tools {
     //! Divides vector a by constant b
     template<typename T, typename S>
     void operator/=(std::vector<T> &a, S b) {
-#pragma omp parallel for
-      for (size_t i = 0; i < a.size(); ++i) {
-        a[i] /= b;
-      }
+      a *= S(1)/b;
     }
 
     //! Multiplies each element of vector a by the corresponding element of vector b
