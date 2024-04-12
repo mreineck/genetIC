@@ -16,6 +16,7 @@
 #endif
 
 #include <iostream>
+#include <map>
 #include <src/simulation/field/field.hpp>
 
 #include "src/simulation/coordinate.hpp"
@@ -30,6 +31,103 @@ namespace tools {
         \brief Provides code that handles fourier transforms, and interfaces with the FFTW library.
     */
     namespace fourier {
+
+      fftw_plan get_plan_c_f_d (size_t res, size_t fieldsize) {
+        static std::map<size_t, fftw_plan> cache;
+        auto tmp = cache.find(res);
+        if (tmp!=cache.end()) return tmp->second;
+        vector<double> tdata(fieldsize);
+        fftw_plan plan = fftw_plan_dft_3d(res, res, res,
+          reinterpret_cast<fftw_complex *>(tdata.data()),
+          reinterpret_cast<fftw_complex *>(tdata.data()),
+          FFTW_FORWARD, FFTW_UNALIGNED|FFTW_MEASURE);
+        cache[res] = plan;
+        return plan;
+      }
+      fftw_plan get_plan_c_b_d (size_t res, size_t fieldsize) {
+        static std::map<size_t, fftw_plan> cache;
+        auto tmp = cache.find(res);
+        if (tmp!=cache.end()) return tmp->second;
+        vector<double> tdata(fieldsize);
+        fftw_plan plan = fftw_plan_dft_3d(res, res, res,
+          reinterpret_cast<fftw_complex *>(tdata.data()),
+          reinterpret_cast<fftw_complex *>(tdata.data()),
+          FFTW_BACKWARD, FFTW_UNALIGNED|FFTW_MEASURE);
+        cache[res] = plan;
+        return plan;
+      }
+      fftwf_plan get_plan_c_f_s (size_t res, size_t fieldsize) {
+        static std::map<size_t, fftwf_plan> cache;
+        auto tmp = cache.find(res);
+        if (tmp!=cache.end()) return tmp->second;
+        vector<float> tdata(fieldsize);
+        fftwf_plan plan = fftwf_plan_dft_3d(res, res, res,
+          reinterpret_cast<fftwf_complex *>(tdata.data()),
+          reinterpret_cast<fftwf_complex *>(tdata.data()),
+          FFTW_FORWARD, FFTW_UNALIGNED|FFTW_MEASURE);
+        cache[res] = plan;
+        return plan;
+      }
+      fftwf_plan get_plan_c_b_s (size_t res, size_t fieldsize) {
+        static std::map<size_t, fftwf_plan> cache;
+        auto tmp = cache.find(res);
+        if (tmp!=cache.end()) return tmp->second;
+        vector<float> tdata(fieldsize);
+        fftwf_plan plan = fftwf_plan_dft_3d(res, res, res,
+          reinterpret_cast<fftwf_complex *>(tdata.data()),
+          reinterpret_cast<fftwf_complex *>(tdata.data()),
+          FFTW_BACKWARD, FFTW_UNALIGNED|FFTW_MEASURE);
+        cache[res] = plan;
+        return plan;
+      }
+      fftw_plan get_plan_r2c_d (size_t res, size_t fieldsize) {
+        static std::map<size_t, fftw_plan> cache;
+        auto tmp = cache.find(res);
+        if (tmp!=cache.end()) return tmp->second;
+        vector<double> tdata(fieldsize);
+        fftw_plan plan = fftw_plan_dft_r2c_3d(res, res, res,
+          tdata.data(),
+          reinterpret_cast<fftw_complex *>(tdata.data()),
+          FFTW_UNALIGNED|FFTW_MEASURE);
+        cache[res] = plan;
+        return plan;
+      }
+      fftw_plan get_plan_c2r_d (size_t res, size_t fieldsize) {
+        static std::map<size_t, fftw_plan> cache;
+        auto tmp = cache.find(res);
+        if (tmp!=cache.end()) return tmp->second;
+        vector<double> tdata(fieldsize);
+        fftw_plan plan = fftw_plan_dft_c2r_3d(res, res, res,
+          reinterpret_cast<fftw_complex *>(tdata.data()),
+          tdata.data(),
+          FFTW_UNALIGNED|FFTW_MEASURE);
+        cache[res] = plan;
+        return plan;
+      }
+      fftwf_plan get_plan_r2c_s (size_t res, size_t fieldsize) {
+        static std::map<size_t, fftwf_plan> cache;
+        auto tmp = cache.find(res);
+        if (tmp!=cache.end()) return tmp->second;
+        vector<float> tdata(fieldsize);
+        fftwf_plan plan = fftwf_plan_dft_r2c_3d(res, res, res,
+          tdata.data(),
+          reinterpret_cast<fftwf_complex *>(tdata.data()),
+          FFTW_UNALIGNED|FFTW_MEASURE);
+        cache[res] = plan;
+        return plan;
+      }
+      fftwf_plan get_plan_c2r_s (size_t res, size_t fieldsize) {
+        static std::map<size_t, fftwf_plan> cache;
+        auto tmp = cache.find(res);
+        if (tmp!=cache.end()) return tmp->second;
+        vector<float> tdata(fieldsize);
+        fftwf_plan plan = fftwf_plan_dft_c2r_3d(res, res, res,
+          reinterpret_cast<fftwf_complex *>(tdata.data()),
+          tdata.data(),
+          FFTW_UNALIGNED|FFTW_MEASURE);
+        cache[res] = plan;
+        return plan;
+      }
 
       bool fftwThreadsInitialised = false;
 
@@ -306,10 +404,6 @@ namespace tools {
       protected:
         int size; //!< Number of elements in the set to apply discrete Fourier transform to.
         size_t compressed_size; //!< Compressed size, exploiting symmetry of real discrete Fourier transforms.
-        fftw_plan forwardPlan; //!< Method used for going from real space to Fourier space, if T is double
-        fftw_plan reversePlan; //!< Method used for going from Fourier space to real space, if T is double
-        fftwf_plan forwardPlanFloat; //!< Method used for going from real space to Fourier space, if T is float
-        fftwf_plan reversePlanFloat; //!< Method used for going from Fourier space to real space, if T is float
 
         //! Re-organises the wave-numbers to lie in the positive quadrant, and returns to a linear index (and whether we conjugated the field)
         auto getRealCoeffLocationAndConjugation(int kx, int ky, int kz) const {
@@ -424,30 +518,6 @@ namespace tools {
         FieldFourierManager(fields::Field<T, T> &field) : FieldFourierManagerBase<T, T>(field) {
           size = static_cast<int>(this->grid.size);
           compressed_size = this->grid.size / 2 + 1;
-          forwardPlan = nullptr;
-          reversePlan = nullptr;
-          forwardPlanFloat = nullptr;
-          reversePlanFloat = nullptr;
-        }
-
-        //! Destructor
-        virtual ~FieldFourierManager() {
-          if (forwardPlan != nullptr) {
-            fftw_destroy_plan(forwardPlan);
-            forwardPlan = nullptr;
-          }
-          if (reversePlan != nullptr) {
-            fftw_destroy_plan(reversePlan);
-            reversePlan = nullptr;
-          }
-          if (forwardPlanFloat != nullptr) {
-            fftwf_destroy_plan(forwardPlanFloat);
-            forwardPlanFloat = nullptr;
-          }
-          if (reversePlanFloat != nullptr) {
-            fftwf_destroy_plan(reversePlanFloat);
-            reversePlanFloat = nullptr;
-          }
         }
 
         //! Sets the specified Fourier coefficient to val (accounting for mirrored Fourier modes as real field)
@@ -513,9 +583,13 @@ namespace tools {
           }
 
           if(plan!=nullptr)
-            fftw_execute(plan);
+            transformToFourier ?
+              fftw_execute_dft_r2c(plan, reinterpret_cast<double *>(fieldData.data()), reinterpret_cast<fftw_complex *>(fieldData.data())) :
+              fftw_execute_dft_c2r(plan, reinterpret_cast<fftw_complex *>(fieldData.data()), reinterpret_cast<double *>(fieldData.data()));
           else if(planFloat!=nullptr)
-            fftwf_execute(planFloat);
+            transformToFourier ?
+              fftwf_execute_dft_r2c(planFloat, reinterpret_cast<float *>(fieldData.data()), reinterpret_cast<fftwf_complex *>(fieldData.data())) :
+              fftwf_execute_dft_c2r(planFloat, reinterpret_cast<fftwf_complex *>(fieldData.data()), reinterpret_cast<float *>(fieldData.data()));
           else
             throw std::runtime_error("No plan available for FFTW transform");
 
@@ -540,39 +614,18 @@ namespace tools {
           fftwf_plan planFloat(nullptr);
 
           if (transformToFourier) {
-            if (forwardPlan == nullptr && forwardPlanFloat == nullptr) {
-              if(std::is_same<T,double>::value) {
-                forwardPlan = fftw_plan_dft_r2c_3d(res, res, res, reinterpret_cast<double*>(&fieldData[0]),
-                                                   reinterpret_cast<fftw_complex *>(&fieldData[0]),
-                                                   FFTW_ESTIMATE);
-              } else {
-                forwardPlanFloat = fftwf_plan_dft_r2c_3d(res, res, res, reinterpret_cast<float*>(&fieldData[0]),
-                                                         reinterpret_cast<fftwf_complex *>(&fieldData[0]),
-                                                         FFTW_ESTIMATE);
-              }
+            if(std::is_same<T,double>::value) {
+              plan = get_plan_r2c_d(res, fieldData.size());
+            } else {
+              planFloat = get_plan_r2c_s(res, fieldData.size());
             }
-
-            // one, but only one, of these will be nullptr
-            plan = forwardPlan;
-            planFloat = forwardPlanFloat;
 
           } else {
-            if(reversePlan == nullptr && reversePlanFloat == nullptr) {
-              if(std::is_same<T,double>::value) {
-                reversePlan = fftw_plan_dft_c2r_3d(res, res, res,
-                                                   reinterpret_cast<fftw_complex *>(&fieldData[0]),
-                                                   reinterpret_cast<double*>(&fieldData[0]),
-                                                   FFTW_ESTIMATE);
-              } else {
-                reversePlanFloat = fftwf_plan_dft_c2r_3d(res, res, res,
-                                                         reinterpret_cast<fftwf_complex *>(&fieldData[0]),
-                                                         reinterpret_cast<float*>(&fieldData[0]),
-                                                         FFTW_ESTIMATE);
-              }
+            if(std::is_same<T,double>::value) {
+              plan = get_plan_c2r_d(res, fieldData.size());
+            } else {
+              planFloat = get_plan_c2r_s(res, fieldData.size());;
             }
-            // one, but only one, of these will be nullptr
-            plan = reversePlan;
-            planFloat = reversePlanFloat;
           }
           return std::make_pair(plan, planFloat);
         }
@@ -623,20 +676,11 @@ namespace tools {
           double norm = pow(static_cast<double>(res), 1.5);
 
           if (!this->field.isFourier())
-            plan = fftw_plan_dft_3d(res, res, res,
-                                    reinterpret_cast<fftw_complex *>(&fieldData[0]),
-                                    reinterpret_cast<fftw_complex *>(&fieldData[0]),
-                                    FFTW_FORWARD, FFTW_ESTIMATE);
-
+            plan = get_plan_c_f_d(res, fieldData.size());
           else
-            plan = fftw_plan_dft_3d(res, res, res,
-                                    reinterpret_cast<fftw_complex *>(&fieldData[0]),
-                                    reinterpret_cast<fftw_complex *>(&fieldData[0]),
-                                    FFTW_BACKWARD, FFTW_ESTIMATE);
+            plan = get_plan_c_b_d(res, fieldData.size());
 
-
-          fftw_execute(plan);
-          fftw_destroy_plan(plan);
+          fftw_execute_dft(plan, reinterpret_cast<fftw_complex *>(&fieldData[0]), reinterpret_cast<fftw_complex *>(&fieldData[0]));
 
           using tools::numerics::operator/=;
           fieldData /= norm;
